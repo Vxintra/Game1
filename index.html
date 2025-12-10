@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tebak Kata (Hangman)</title>
+  <style>
+    :root{
+      --bg:#ffffff;
+      --card:#000000;
+      --accent:#ffffff;
+      --accent-2:#ffffff;
+      --text:#e6eef8;
+      --muted:#8f8f8f;
+      --danger:#ff0026;
+      --good:#61ff3a;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      background:linear-gradient(180deg,#0c2355 0%, #4f697c 100%);
+      color:var(--text);
+      font-family:Inter, "Segoe UI", Roboto, system-ui, -apple-system, "Helvetica Neue", Arial;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+    }
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border:1px solid rgba(255,255,255,0.03);
+      border-radius:12px;
+      width:100%;
+      max-width:980px;
+      padding:20px;
+      display:grid;
+      grid-template-columns: 360px 1fr;
+      gap:20px;
+      box-shadow:0 8px 30px rgba(2,6,23,0.6);
+    }
+    header h1{margin:0;font-size:20px;color:var(--accent);}
+    .left{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    .hangman-wrap{
+      background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));
+      border-radius:8px;
+      padding:12px;
+      text-align:center;
+    }
+    svg{width:100%; height:260px}
+    .status{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      justify-content:center;
+      margin-top:6px;
+      color:var(--muted);
+    }
+    .lives{
+      font-weight:700;
+      color:var(--danger);
+    }
+    .right{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    .word-box{
+      background:rgba(255,255,255,0.02);
+      border-radius:8px;
+      padding:12px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+      min-height:58px;
+      font-size:28px;
+      letter-spacing:4px;
+    }
+    .letter{
+      min-width:28px;
+      text-align:center;
+      font-weight:700;
+      color:var(--accent-2);
+    }
+    .controls{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .btn{
+      background:var(--accent);
+      border:0;
+      color:#414141;
+      padding:8px 12px;
+      border-radius:8px;
+      cursor:pointer;
+      font-weight:700;
+      transition:transform .08s;
+    }
+    .btn:active{transform:scale(.98)}
+    .btn.secondary{
+      background:transparent;
+      color:var(--text);
+      border:1px solid rgba(255,255,255,0.04);
+    }
+    .btn.hint{background:var(--accent-2); color:#000000}
+    .keyboard{
+      display:grid;
+      grid-template-columns:repeat(13,1fr);
+      gap:6px;
+      margin-top:6px;
+    }
+    .key{
+      padding:8px 6px;
+      border-radius:6px;
+      text-align:center;
+      cursor:pointer;
+      background:rgba(255,255,255,0.02);
+      color:var(--text);
+      user-select:none;
+      font-weight:700;
+    }
+    .key.used{opacity:.35; cursor:default;}
+    .message{
+      padding:10px;
+      border-radius:8px;
+      background:linear-gradient(90deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));
+      color:var(--muted);
+      min-height:44px;
+    }
+    .guess-box{display:flex; gap:8px; align-items:center;}
+    input[type="text"]{
+      padding:10px 12px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,0.04);
+      background:transparent;
+      color:var(--text);
+      flex:1;
+      outline:none;
+    }
+    footer{grid-column:1/-1; text-align:center; color:var(--muted); font-size:13px; margin-top:8px}
+    @media (max-width:880px){
+      .card{grid-template-columns:1fr; padding:14px}
+      svg{height:180px}
+      .keyboard{grid-template-columns:repeat(9,1fr)}
+    }
+  </style>
+</head>
+<body>
+    <script src="main.js"></script>
+  <div class="card" role="application" aria-label="Game Tebak Kata">
+    <div class="left">
+      <header>
+        <h1>Game Tebak Kata (Hangman)</h1>
+        <p style="color:var(--muted);margin:6px 0 0 0;font-size:13px">
+          Tebak huruf, atau tebak kata penuh. Klik tombol Hint untuk membuka satu huruf (-1 nyawa).
+        </p>
+      </header>
+
+      <div class="hangman-wrap" aria-hidden="false">
+        <!-- SVG hangman with parts toggled by JS -->
+        <svg viewBox="0 0 120 140" role="img" aria-label="Gambar hangman">
+          <!-- gallows -->
+          <line x1="10" y1="130" x2="110" y2="130" stroke="#7b8794" stroke-width="3"/>
+          <line x1="25" y1="130" x2="25" y2="15" stroke="#7b8794" stroke-width="3"/>
+          <line x1="25" y1="15" x2="75" y2="15" stroke="#7b8794" stroke-width="3"/>
+          <line x1="75" y1="15" x2="75" y2="30" stroke="#7b8794" stroke-width="3"/>
+          <!-- head -->
+          <circle id="part-head" cx="75" cy="40" r="10" fill="none" stroke="#60a5fa" stroke-width="2" style="opacity:0"/>
+          <!-- body -->
+          <line id="part-body" x1="75" y1="50" x2="75" y2="84" stroke="#60a5fa" stroke-width="2" style="opacity:0"/>
+          <!-- left arm -->
+          <line id="part-arm-left" x1="75" y1="58" x2="60" y2="70" stroke="#60a5fa" stroke-width="2" style="opacity:0"/>
+          <!-- right arm -->
+          <line id="part-arm-right" x1="75" y1="58" x2="90" y2="70" stroke="#60a5fa" stroke-width="2" style="opacity:0"/>
+          <!-- left leg -->
+          <line id="part-leg-left" x1="75" y1="84" x2="60" y2="100" stroke="#60a5fa" stroke-width="2" style="opacity:0"/>
+          <!-- right leg -->
+          <line id="part-leg-right" x1="75" y1="84" x2="90" y2="100" stroke="#60a5fa" stroke-width="2" style="opacity:0"/>
+        </svg>
+
+        <div class="status">
+          <div>Nyawa: <span id="lives" class="lives">6</span></div>
+          <div style="margin-left:8px">Tebakan salah: <span id="wrongCount">0</span>/6</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;">
+        <button class="btn hint" id="btnHint" title="Buka satu huruf (kurangi 1 nyawa)">Hint</button>
+        <button class="btn secondary" id="btnNew">Main lagi</button>
+      </div>
+
+    </div>
+
+    <div class="right">
+      <div class="word-box" id="wordBox" aria-live="polite" aria-atomic="true">
+        <!-- letters shown here -->
+      </div>
+
+      <div class="controls">
+        <div style="flex:1">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:6px">Tebak kata penuh</div>
+          <div class="guess-box">
+            <input id="guessInput" type="text" placeholder="Ketik tebakan kata lalu tekan Tebak" autocomplete="off" />
+            <button class="btn" id="btnGuess">Tebak</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:8px">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:6px">Tebak huruf (klik atau tekan keyboard)</div>
+        <div class="keyboard" id="keyboard" aria-hidden="false">
+          <!-- keys generated by JS -->
+        </div>
+      </div>
+
+      <div class="message" id="message" role="status">Selamat datang! Mulai tebak huruf atau kata.</div>
+    </div>
+
+    <footer>
+     〰 @Ranza/Vintara 10 Dec 2025 😘 〰
+     <a href="https://www.instagram.com/vntranz/"> @vntranz </a>
+    </footer>
+  </div>
+
+  <script>
+    // Game logic (self-contained)
+    (function(){
+      const words = [
+        "Digantung","Dipukul","Ditendang","Diri","Menyakiti","Keras","TraumaMasalalu",
+        "HilangArah","Emosi","Mati","Sendiri","Menyedihkan","MarahBesar","Tamat","Berakhir",
+        "Memulai","Membanting","Patah","Terlepas","Mengakhiri","Pasrah","Menusuk","Membunuh",
+        "Berteman","Memusuhi","melawan","Kehidupan","Kesengsaraan"
+      ];
+      const MAX_LIVES = 6;
+      let target = "";
+      let targetLower = "";
+      let revealed = new Set();
+      let usedLetters = new Set();
+      let wrongCount = 0;
+      let finished = false;
+
+      // UI elements
+      const wordBox = document.getElementById("wordBox");
+      const keyboard = document.getElementById("keyboard");
+      const message = document.getElementById("message");
+      const livesEl = document.getElementById("lives");
+      const wrongCountEl = document.getElementById("wrongCount");
+      const btnHint = document.getElementById("btnHint");
+      const btnNew = document.getElementById("btnNew");
+      const btnGuess = document.getElementById("btnGuess");
+      const guessInput = document.getElementById("guessInput");
+
+      // Hangman SVG parts array in order to reveal
+      const parts = [
+        document.getElementById("part-head"),
+        document.getElementById("part-body"),
+        document.getElementById("part-arm-left"),
+        document.getElementById("part-arm-right"),
+        document.getElementById("part-leg-left"),
+        document.getElementById("part-leg-right")
+      ];
+
+      // utilities
+      function randPick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+      function toLower(s){ return s.toLowerCase(); }
+
+      function startNew(){
+        target = randPick(words);
+        targetLower = toLower(target);
+        revealed = new Set();
+        usedLetters = new Set();
+        wrongCount = 0;
+        finished = false;
+        // automatically reveal non-letters (if any)
+        for(const ch of targetLower){
+          if(!(/[a-z]/i).test(ch)) revealed.add(ch);
+        }
+        updateUI();
+        setMessage("Mulai menebak!");
+        guessInput.value = "";
+        revealHangmanParts(0);
+      }
+
+      function updateUI(){
+        // word display
+        wordBox.innerHTML = "";
+        let allRevealed = true;
+        for(const ch of targetLower){
+          const span = document.createElement("div");
+          span.className = "letter";
+          if((/[a-z]/i).test(ch)){
+            if(revealed.has(ch)){
+              span.textContent = ch;
+            } else {
+              span.textContent = "_";
+              allRevealed = false;
+            }
+          } else {
+            span.textContent = ch;
+          }
+          wordBox.appendChild(span);
+        }
+
+        // keyboard keys state
+        Array.from(keyboard.children).forEach(keyBtn=>{
+          const k = keyBtn.dataset.letter;
+          if(usedLetters.has(k) || revealed.has(k)){
+            keyBtn.classList.add("used");
+            keyBtn.setAttribute("aria-disabled","true");
+          } else {
+            keyBtn.classList.remove("used");
+            keyBtn.removeAttribute("aria-disabled");
+          }
+        });
+
+        livesEl.textContent = MAX_LIVES - wrongCount;
+        wrongCountEl.textContent = wrongCount;
+
+        revealHangmanParts(wrongCount);
+
+        if(allRevealed && !finished){
+          finished = true;
+          setMessage("Anda berhasil menebak kata: " + target, "good");
+        }
+
+        if(wrongCount >= MAX_LIVES && !finished){
+          finished = true;
+          // reveal all letters
+          for(const ch of targetLower) if((/[a-z]/i).test(ch)) revealed.add(ch);
+          updateUI();
+          setMessage("GAME OVER. Kata yang benar adalah: " + target, "bad");
+        }
+      }
+
+      function setMessage(text, type){
+        message.textContent = text;
+        if(type==="bad"){
+          message.style.color = "var(--danger)";
+        } else if(type==="good"){
+          message.style.color = "var(--good)";
+        } else {
+          message.style.color = "var(--muted)";
+        }
+      }
+
+      function revealHangmanParts(count){
+        for(let i=0;i<parts.length;i++){
+          parts[i].style.opacity = (i < count) ? "1" : "0";
+        }
+      }
+
+      function guessLetter(letter){
+        if(finished) return;
+        letter = letter.toLowerCase();
+        if(usedLetters.has(letter) || revealed.has(letter)) return;
+        usedLetters.add(letter);
+
+        if(targetLower.includes(letter)){
+          // reveal all occurrences
+          for(const ch of targetLower){
+            if(ch === letter) revealed.add(ch);
+          }
+          setMessage("Benar! Huruf '" + letter + "' ada di kata.", "good");
+        } else {
+          wrongCount++;
+          setMessage("Salah. Huruf '" + letter + "' tidak ada. (-1 nyawa)", "bad");
+        }
+        updateUI();
+      }
+
+      function guessWord(word){
+        if(finished) return;
+        word = toLower(word.trim());
+        if(!word) { setMessage("Masukkan tebakan kosong."); return; }
+        if(word === targetLower){
+          // win
+          for(const ch of targetLower) if((/[a-z]/i).test(ch)) revealed.add(ch);
+          setMessage("Tebakan kata benar: " + target, "good");
+          finished = true;
+          updateUI();
+        } else {
+          wrongCount++;
+          setMessage("Tebakan kata salah. (-1 nyawa)", "bad");
+          updateUI();
+        }
+      }
+
+      function giveHint(){
+        if(finished) return;
+        // find hidden letters
+        const hidden = [];
+        for(const ch of targetLower){
+          if((/[a-z]/i).test(ch) && !revealed.has(ch)) hidden.push(ch);
+        }
+        if(hidden.length === 0){
+          setMessage("Tidak ada hint lagi.");
+          return;
+        }
+        // reveal random one
+        const pick = hidden[Math.floor(Math.random()*hidden.length)];
+        revealed.add(pick);
+        wrongCount++; // hint costs 1 nyawa
+        setMessage("Hint: salah satu huruf adalah '" + pick + "'. (-1 nyawa)");
+        updateUI();
+      }
+
+      // build keyboard A-Z
+      function buildKeyboard(){
+        keyboard.innerHTML = "";
+        const letters = "abcdefghijklmnopqrstuvwxyz";
+        for(const ch of letters){
+          const btn = document.createElement("button");
+          btn.className = "key";
+          btn.textContent = ch.toUpperCase();
+          btn.dataset.letter = ch;
+          btn.type = "button";
+          btn.addEventListener("click", ()=> {
+            if(btn.classList.contains("used")) return;
+            guessLetter(ch);
+          });
+          keyboard.appendChild(btn);
+        }
+      }
+
+      // events
+      btnHint.addEventListener("click", giveHint);
+      btnNew.addEventListener("click", startNew);
+      btnGuess.addEventListener("click", ()=> {
+        guessWord(guessInput.value);
+        guessInput.value = "";
+      });
+
+      guessInput.addEventListener("keydown", (e)=>{
+        if(e.key === "Enter"){
+          e.preventDefault();
+          guessWord(guessInput.value);
+          guessInput.value = "";
+        } else if(e.key === "Escape"){
+          guessInput.value = "";
+        }
+      });
+
+      // keyboard physical keys
+      document.addEventListener("keydown", (e)=>{
+        if(e.key === "Escape"){
+          guessInput.value = "";
+          return;
+        }
+        if(finished) return;
+        const key = e.key.toLowerCase();
+        if(key.length ===1 && key >= 'a' && key <= 'z'){
+          // avoid interfering when user is typing a multi-letter guess: only handle single key when input not focused
+          if(document.activeElement === guessInput) return;
+          guessLetter(key);
+        } else if(e.key === "Enter"){
+          // if input not focused, pressing Enter focuses input
+          if(document.activeElement !== guessInput) guessInput.focus();
+        }
+      });
+
+      // initialize
+      buildKeyboard();
+      startNew();
+
+      // expose for debugging (optional)
+      window._tebakKata = {
+        restart: startNew,
+        guessLetter,
+        guessWord,
+        giveHint
+      };
+    })();
+  </script>
+</body>
+</html>
